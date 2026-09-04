@@ -380,3 +380,10 @@ func (p *DockerTLSPlugin) Type() plugins.Protocol {
 func (p *DockerTLSPlugin) Priority() int {
 	return 101
 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *DockerPlugin) BaseProtocol() string    { return "http" }
+func (p *DockerTLSPlugin) BaseProtocol() string { return "https" }

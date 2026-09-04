@@ -37,6 +37,7 @@ Nerva rapidly detects and identifies services running on open network ports. Use
 - **Proxy Support** — Route scanning traffic transparently through SOCKS5 or HTTP proxies with configurable DNS resolution
 - **Rich Metadata** — Extract versions, configurations, and security-relevant details from each service
 - **Fast Mode** — Scan only default ports for rapid reconnaissance (`--fast`)
+- **Protocol-Only Mode** — Report just the wire protocol, skipping all application-layer detection (`--protocol-only`)
 - **Flexible Output** — JSON, CSV, or human-readable formats
 - **Pipeline Friendly** — Pipe from Naabu, Nmap, or any tool that outputs `host:port`
 - **Go Library** — Import directly into your Go applications
@@ -122,6 +123,7 @@ EXAMPLES:
 | `--json` | | Output in JSON format | false |
 | `--csv` | | Output in CSV format | false |
 | `--misconfigs` | | Enable security misconfiguration detection | false |
+| `--protocol-only` | | Report only the wire protocol; no application-layer detection | false |
 | `--proxy` | | Proxy URL (e.g. socks5://127.0.0.1:1080) | — |
 | `--proxy-auth` | | SOCKS5 Proxy Auth (e.g. username:password) | — |
 | `--dns-order` | | DNS resolution order: `p`, `l`, `lp`, `pl` | `lp` |
@@ -174,6 +176,44 @@ nerva -l large-target-list.txt --fast --json
 ```sh
 nerva -t target.internal:80 --proxy socks5://127.0.0.1:1080 --dns-order p
 ```
+
+### Protocol Detection Only
+
+`--protocol-only` restricts nerva to identifying the wire protocol on a port —
+`http`, `https`, `ssh`, `ipp`, `redis`, and so on — with no application-layer
+detection at all:
+
+```sh
+nerva -t example.com:8000 --protocol-only --json
+# {"ip":"...","port":8000,"protocol":"http","tls":false,"transport":"tcp",
+#  "metadata":{"status":"200 OK","status_code":200}}
+```
+
+Compared to a default scan, this changes two things:
+
+1. **`protocol` always names a protocol, never a product.** Plugins that
+   identify an application running over a generic protocol — `oracle_ebs`,
+   `oracle_weblogic`, `docker`, `cups`, `glassfish` and ~60 others — are
+   excluded, so the generic plugin claims the port instead. A target that
+   default mode reports as `oracle_ebs` is reported as `http`.
+
+2. **No fingerprinting requests are made.** The wappalyzer pass, every HTTP
+   fingerprinter, and their active endpoint probes (`/api/version`, `/login`,
+   `/favicon.ico`, …) are skipped, and the response body is never read. HTTP
+   identification costs a single request rather than dozens.
+
+The emitted metadata is correspondingly minimal: `status` and `status_code`
+only. `title`, `response_headers`, `technologies`, `cpes`,
+`fingerprint_metadata` and the `Server`-header `version` are all
+application-layer details and are omitted.
+
+Because it is the opposite of enrichment, `--protocol-only` cannot be combined
+with `--misconfigs` or `--deep`.
+
+> **Note:** `--protocol-only --fast` can return no result for a service on a
+> port that only an application-layer plugin covers (for example Qdrant on
+> 6333, which is not a default HTTP port). The default thorough mode still
+> finds these, since it tries every plugin regardless of port.
 
 ### Security Misconfiguration Detection
 

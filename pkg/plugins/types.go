@@ -1002,6 +1002,10 @@ type Target struct {
 	Host       string
 	Misconfigs bool // when true, plugins should populate SecurityFindings
 	Deep       bool // when true, plugins perform additional probes (e.g., admin path discovery)
+	// ProtocolOnly reports that the caller wants the wire protocol and nothing
+	// else. Plugins must skip application-layer detection and any request not
+	// required to identify the protocol itself.
+	ProtocolOnly bool
 }
 
 type Plugin interface {
@@ -1010,6 +1014,25 @@ type Plugin interface {
 	Name() string
 	Type() Protocol
 	Priority() int
+}
+
+// AppLayerPlugin is implemented by plugins that identify a product running over
+// a wire protocol nerva already detects generically (e.g. Oracle EBS over HTTP),
+// rather than identifying the wire protocol itself. Protocol-only scans skip
+// these so Service.Protocol always names a protocol.
+//
+// Speaking HTTP is not the criterion: IPP (RFC 8010) and SSTP use HTTP purely as
+// a transport and are genuine protocols, so they do not implement this. The
+// criterion is that the plugin names a product for which a more generic protocol
+// plugin would otherwise answer.
+type AppLayerPlugin interface {
+	Plugin
+
+	// BaseProtocol names the plugin expected to claim the port instead when
+	// this one is skipped, e.g. "http", "https", "ipp", "redis". It documents
+	// intent and is asserted by tests; plugin selection depends only on whether
+	// a plugin implements this interface, not on the returned value.
+	BaseProtocol() string
 }
 
 type Service struct {
@@ -1032,7 +1055,7 @@ type ServiceHTTP struct {
 	Status              string                    `json:"status"`      // e.g. "200 OK"
 	StatusCode          int                       `json:"status_code"` // e.g. 200
 	Title               string                    `json:"title,omitempty"`
-	ResponseHeaders     http.Header               `json:"response_headers"`
+	ResponseHeaders     http.Header               `json:"response_headers,omitempty"`
 	Technologies        []string                  `json:"technologies,omitempty"`
 	CPEs                []string                  `json:"cpes,omitempty"`
 	FingerprintMetadata map[string]map[string]any `json:"fingerprint_metadata,omitempty"`
@@ -1044,7 +1067,7 @@ type ServiceHTTPS struct {
 	Status              string                    `json:"status"`      // e.g. "200 OK"
 	StatusCode          int                       `json:"status_code"` // e.g. 200
 	Title               string                    `json:"title,omitempty"`
-	ResponseHeaders     http.Header               `json:"response_headers"`
+	ResponseHeaders     http.Header               `json:"response_headers,omitempty"`
 	Technologies        []string                  `json:"technologies,omitempty"`
 	CPEs                []string                  `json:"cpes,omitempty"`
 	FingerprintMetadata map[string]map[string]any `json:"fingerprint_metadata,omitempty"`

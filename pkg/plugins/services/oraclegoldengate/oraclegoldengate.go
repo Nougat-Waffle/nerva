@@ -282,3 +282,10 @@ func (p *ClassicPlugin) PortPriority(port uint16) bool { return port == 7809 }
 func (p *ClassicPlugin) Name() string                  { return GOLDENGATE_MANAGER }
 func (p *ClassicPlugin) Type() plugins.Protocol        { return plugins.TCP }
 func (p *ClassicPlugin) Priority() int                 { return -1 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *Plugin) BaseProtocol() string    { return "http" }
+func (p *TLSPlugin) BaseProtocol() string { return "https" }

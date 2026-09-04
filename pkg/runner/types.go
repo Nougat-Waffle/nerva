@@ -59,6 +59,9 @@ type cliConfig struct {
 	// Deep probing (admin paths, login detection)
 	deep bool
 
+	// Protocol-only detection (no application-layer fingerprinting)
+	protocolOnly bool
+
 	// Proxy
 	proxy     string
 	proxyAuth string

@@ -626,3 +626,11 @@ func (p *VBoxWebPlugin) PortPriority(port uint16) bool { return port == DefaultV
 func (p *VBoxWebPlugin) Name() string                  { return plugins.ProtoVirtualBoxWeb }
 func (p *VBoxWebPlugin) Type() plugins.Protocol        { return plugins.TCP }
 func (p *VBoxWebPlugin) Priority() int                 { return -1 } // Runs before generic http so it can claim 18083
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *InfraPlugin) BaseProtocol() string    { return "http" }
+func (p *InfraTLSPlugin) BaseProtocol() string { return "https" }
+func (p *VBoxWebPlugin) BaseProtocol() string  { return "http" }

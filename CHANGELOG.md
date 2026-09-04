@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--protocol-only` flag for protocol detection without service fingerprinting
+  ([#421](https://github.com/praetorian-inc/nerva/issues/421)). `Service.Protocol`
+  always names a wire protocol rather than a product, and the HTTP fingerprinting
+  phase — wappalyzer, all registered fingerprinters, and their active endpoint
+  probes — is skipped along with the response body read. Mutually exclusive with
+  `--misconfigs` and `--deep`. Exposed to library users as
+  `scan.Config.ProtocolOnly`.
+- `plugins.AppLayerPlugin`, an optional marker interface implemented by the 69
+  plugins that identify a product running over a protocol nerva already detects
+  generically (Oracle EBS and WebLogic over HTTP, CUPS over IPP, Redis Sentinel
+  over Redis, and others). Protocol-only scans exclude these from plugin
+  selection. Plugins that use HTTP purely as a transport, such as IPP, are
+  deliberately not marked.
+
+### Changed
+
+- `HTTPPlugin.FingerprintResponse` and `HTTPSPlugin.FingerprintResponse` now take
+  a `plugins.Target` in place of their `host string, misconfigs bool` parameters.
+- `response_headers` in the `http`/`https` service payloads is now `omitempty`.
+
 ## [1.4.0] - 2026-05-08
 
 ### Added

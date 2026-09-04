@@ -540,3 +540,10 @@ func buildCPE(version string) string {
 	}
 	return fmt.Sprintf("cpe:2.3:a:apache:pulsar:%s:*:*:*:*:*:*:*", version)
 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *AdminPlugin) BaseProtocol() string    { return "http" }
+func (p *AdminTLSPlugin) BaseProtocol() string { return "https" }

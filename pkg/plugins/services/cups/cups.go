@@ -287,3 +287,10 @@ func (p *CUPSTLSPlugin) Type() plugins.Protocol {
 func (p *CUPSTLSPlugin) Priority() int {
 	return 101
 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *CUPSPlugin) BaseProtocol() string    { return "ipp" }
+func (p *CUPSTLSPlugin) BaseProtocol() string { return "ipp" }

@@ -302,3 +302,10 @@ func (p *MFTTLSPlugin) PortPriority(port uint16) bool { return port == 443 }
 func (p *MFTTLSPlugin) Name() string                  { return OracleMFT }
 func (p *MFTTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *MFTTLSPlugin) Priority() int                 { return -1 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *MFTPlugin) BaseProtocol() string    { return "http" }
+func (p *MFTTLSPlugin) BaseProtocol() string { return "https" }

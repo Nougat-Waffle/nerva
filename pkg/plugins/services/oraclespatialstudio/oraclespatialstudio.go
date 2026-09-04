@@ -330,3 +330,10 @@ func (p *SpatialStudioTLSPlugin) PortPriority(port uint16) bool { return port ==
 func (p *SpatialStudioTLSPlugin) Name() string                  { return OracleSpatialStudio }
 func (p *SpatialStudioTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *SpatialStudioTLSPlugin) Priority() int                 { return -1 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *SpatialStudioPlugin) BaseProtocol() string    { return "http" }
+func (p *SpatialStudioTLSPlugin) BaseProtocol() string { return "https" }

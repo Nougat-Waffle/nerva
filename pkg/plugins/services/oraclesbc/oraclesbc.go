@@ -384,3 +384,10 @@ func (p *SBCTLSPlugin) PortPriority(port uint16) bool { return port == 443 || po
 func (p *SBCTLSPlugin) Name() string                  { return OracleSBC }
 func (p *SBCTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *SBCTLSPlugin) Priority() int                 { return -1 } // Runs before generic HTTPS so it can claim the port
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *SBCPlugin) BaseProtocol() string    { return "http" }
+func (p *SBCTLSPlugin) BaseProtocol() string { return "https" }

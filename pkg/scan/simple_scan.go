@@ -44,6 +44,15 @@ var sortedTCPPlugins = make([]plugins.Plugin, 0)
 var sortedTCPTLSPlugins = make([]plugins.Plugin, 0)
 var sortedUDPPlugins = make([]plugins.Plugin, 0)
 var sortedSCTPPlugins = make([]plugins.Plugin, 0)
+
+// Protocol-only variants of the sorted lists above, with application-layer
+// plugins removed. Built once by setupPlugins so Config.ProtocolOnly costs
+// nothing per target.
+var protocolTCPPlugins = make([]plugins.Plugin, 0)
+var protocolTCPTLSPlugins = make([]plugins.Plugin, 0)
+var protocolUDPPlugins = make([]plugins.Plugin, 0)
+var protocolSCTPPlugins = make([]plugins.Plugin, 0)
+
 var tlsConfig = tls.Config{} //nolint:gosec
 
 // prefixConn wraps a net.Conn to replay previously-read bytes (a banner)
@@ -108,6 +117,57 @@ func setupPlugins() {
 	sort.Slice(sortedSCTPPlugins, func(i, j int) bool {
 		return sortedSCTPPlugins[i].Priority() < sortedSCTPPlugins[j].Priority()
 	})
+
+	protocolTCPPlugins = withoutAppLayer(sortedTCPPlugins)
+	protocolTCPTLSPlugins = withoutAppLayer(sortedTCPTLSPlugins)
+	protocolUDPPlugins = withoutAppLayer(sortedUDPPlugins)
+	protocolSCTPPlugins = withoutAppLayer(sortedSCTPPlugins)
+}
+
+// withoutAppLayer returns candidates with every plugins.AppLayerPlugin removed,
+// preserving order. These plugins identify a product running over a protocol
+// nerva already detects generically; dropping them lets the generic plugin claim
+// the port so Service.Protocol names a protocol rather than a product.
+func withoutAppLayer(candidates []plugins.Plugin) []plugins.Plugin {
+	filtered := make([]plugins.Plugin, 0, len(candidates))
+	for _, p := range candidates {
+		if _, isAppLayer := p.(plugins.AppLayerPlugin); isAppLayer {
+			continue
+		}
+		filtered = append(filtered, p)
+	}
+	return filtered
+}
+
+// tcpCandidates and friends return the plugin list this scan should iterate,
+// honoring ProtocolOnly. The returned slices are shared, immutable after
+// setupPlugins, and must not be modified by callers.
+func (c *Config) tcpCandidates() []plugins.Plugin {
+	if c.ProtocolOnly {
+		return protocolTCPPlugins
+	}
+	return sortedTCPPlugins
+}
+
+func (c *Config) tcpTLSCandidates() []plugins.Plugin {
+	if c.ProtocolOnly {
+		return protocolTCPTLSPlugins
+	}
+	return sortedTCPTLSPlugins
+}
+
+func (c *Config) udpCandidates() []plugins.Plugin {
+	if c.ProtocolOnly {
+		return protocolUDPPlugins
+	}
+	return sortedUDPPlugins
+}
+
+func (c *Config) sctpCandidates() []plugins.Plugin {
+	if c.ProtocolOnly {
+		return protocolSCTPPlugins
+	}
+	return sortedSCTPPlugins
 }
 
 // UDP Scan of the target
@@ -117,7 +177,7 @@ func (c *Config) UDPScanTarget(target plugins.Target) (*plugins.Service, error) 
 	}
 
 	// first check the default port mappings for TCP / TLS
-	for _, plugin := range sortedUDPPlugins {
+	for _, plugin := range c.udpCandidates() {
 		port := target.Address.Port()
 		if plugin.PortPriority(port) {
 			conn, err := c.DialUDP(target)
@@ -141,7 +201,7 @@ func (c *Config) UDPScanTarget(target plugins.Target) (*plugins.Service, error) 
 
 	// Banner pre-filtering is not applicable: UDP is connectionless; servers
 	// require a client probe before responding, so no server banner exists to pre-read.
-	for _, plugin := range sortedUDPPlugins {
+	for _, plugin := range c.udpCandidates() {
 		conn, err := c.DialUDP(target)
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect, err = %w", err)
@@ -166,7 +226,7 @@ func (c *Config) SCTPScanTarget(target plugins.Target) (*plugins.Service, error)
 	port := target.Address.Port()
 
 	// First check default port mappings
-	for _, plugin := range sortedSCTPPlugins {
+	for _, plugin := range c.sctpCandidates() {
 		if plugin.PortPriority(port) {
 			conn, err := DialSCTP(ip, port)
 			if err != nil {
@@ -190,7 +250,7 @@ func (c *Config) SCTPScanTarget(target plugins.Target) (*plugins.Service, error)
 	// Slow scan: try all SCTP plugins.
 	// Banner pre-filtering is not applicable: SCTP is connection-oriented but
 	// SetReadDeadline is unsupported on Linux SCTP sockets, which ReadBanner depends on.
-	for _, plugin := range sortedSCTPPlugins {
+	for _, plugin := range c.sctpCandidates() {
 		conn, err := DialSCTP(ip, port)
 		if err != nil {
 			return nil, fmt.Errorf("SCTP connection failed: %w", err)
@@ -219,7 +279,7 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 	port := target.Address.Port()
 
 	// first check the default port mappings for TCP / TLS
-	for _, plugin := range sortedTCPPlugins {
+	for _, plugin := range c.tcpCandidates() {
 		if !plugin.PortPriority(port) {
 			continue
 		}
@@ -248,7 +308,7 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 		return nil, nil
 	}
 	if isTLS {
-		for _, plugin := range sortedTCPTLSPlugins {
+		for _, plugin := range c.tcpTLSCandidates() {
 			if !plugin.PortPriority(port) {
 				continue
 			}
@@ -276,7 +336,7 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 	// Slow lane: pre-read banner to narrow plugin candidates before iterating.
 
 	if isTLS {
-		tlsCandidates := sortedTCPTLSPlugins
+		tlsCandidates := c.tcpTLSCandidates()
 		var firstTLSConn net.Conn
 
 		if bannerConn, dialErr := c.DialTLS(target); dialErr == nil {
@@ -287,7 +347,7 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 					target.Address.String(), target.Host, family, len(banner))
 			}
 			if family != ProtocolFamilyUnknown {
-				tlsCandidates = FilterPluginsByFamily(sortedTCPTLSPlugins, family)
+				tlsCandidates = FilterPluginsByFamily(c.tcpTLSCandidates(), family)
 			}
 			if family != ProtocolFamilyUnknown && len(banner) > 0 && bannerErr == nil {
 				_ = bannerConn.SetReadDeadline(time.Time{})
@@ -318,7 +378,7 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 			}
 		}
 	} else {
-		tcpCandidates := sortedTCPPlugins
+		tcpCandidates := c.tcpCandidates()
 		var firstConn net.Conn
 
 		if bannerConn, dialErr := c.DialTCP(target); dialErr == nil {
@@ -329,7 +389,7 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 					target.Address.String(), target.Host, family, len(banner))
 			}
 			if family != ProtocolFamilyUnknown {
-				tcpCandidates = FilterPluginsByFamily(sortedTCPPlugins, family)
+				tcpCandidates = FilterPluginsByFamily(c.tcpCandidates(), family)
 			}
 			if family != ProtocolFamilyUnknown && len(banner) > 0 && bannerErr == nil {
 				_ = bannerConn.SetReadDeadline(time.Time{})
@@ -390,6 +450,7 @@ func simplePluginRunner(
 
 	target.Misconfigs = config.Misconfigs
 	target.Deep = config.Deep
+	target.ProtocolOnly = config.ProtocolOnly
 	result, err := plugin.Run(conn, config.DefaultTimeout, target)
 
 	// Log probe completion.

@@ -327,3 +327,10 @@ func (p *OHSTLSPlugin) PortPriority(port uint16) bool {
 func (p *OHSTLSPlugin) Name() string           { return OracleHTTPServer }
 func (p *OHSTLSPlugin) Type() plugins.Protocol { return plugins.TCPTLS }
 func (p *OHSTLSPlugin) Priority() int          { return -1 } // Runs before generic HTTPS so it can claim OHS on shared ports (e.g. 443)
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *OHSPlugin) BaseProtocol() string    { return "http" }
+func (p *OHSTLSPlugin) BaseProtocol() string { return "https" }

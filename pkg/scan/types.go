@@ -98,5 +98,15 @@ type Config struct {
 	// Enable deep probing (admin paths, login detection)
 	Deep bool
 
+	// ProtocolOnly restricts the scan to wire-protocol identification. Plugins
+	// implementing plugins.AppLayerPlugin are excluded from selection, so
+	// Service.Protocol always names a protocol rather than a product, and the
+	// HTTP fingerprinting phase (wappalyzer, passive fingerprinters, and their
+	// active endpoint probes) is skipped entirely.
+	//
+	// Mutually exclusive with Misconfigs and Deep, both of which are
+	// application-layer features; the CLI rejects the combination.
+	ProtocolOnly bool
+
 	OnProgress ProgressCallback
 }

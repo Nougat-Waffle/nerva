@@ -193,3 +193,9 @@ func (p *QdrantPlugin) Type() plugins.Protocol {
 func (p *QdrantPlugin) Priority() int {
 	return 50 // Run before generic HTTP (100)
 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *QdrantPlugin) BaseProtocol() string { return "http" }

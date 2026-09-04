@@ -193,3 +193,9 @@ func (p *MilvusMetricsPlugin) Type() plugins.Protocol {
 func (p *MilvusMetricsPlugin) Priority() int {
 	return 51 // Run after main Milvus plugin (50)
 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *MilvusMetricsPlugin) BaseProtocol() string { return "http" }

@@ -468,3 +468,12 @@ func (p *OIMTLSPlugin) PortPriority(port uint16) bool { return port == 443 }
 func (p *OIMTLSPlugin) Name() string                  { return OracleOIM }
 func (p *OIMTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *OIMTLSPlugin) Priority() int                 { return -1 } // Runs before generic HTTPS so it can claim OIM on shared ports (e.g. 443)
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *OAMPlugin) BaseProtocol() string    { return "http" }
+func (p *OAMTLSPlugin) BaseProtocol() string { return "https" }
+func (p *OIMPlugin) BaseProtocol() string    { return "http" }
+func (p *OIMTLSPlugin) BaseProtocol() string { return "https" }

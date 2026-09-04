@@ -290,3 +290,9 @@ func (p *VMwarePlugin) Type() plugins.Protocol {
 func (p *VMwarePlugin) Priority() int {
 	return 0
 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *VMwarePlugin) BaseProtocol() string { return "https" }

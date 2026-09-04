@@ -634,3 +634,12 @@ func (p *ReportsTLSPlugin) PortPriority(port uint16) bool { return port == 443 |
 func (p *ReportsTLSPlugin) Name() string                  { return OracleReports }
 func (p *ReportsTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *ReportsTLSPlugin) Priority() int                 { return -1 } // Runs before generic HTTPS so it can claim Reports on shared ports (e.g. 443)
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *FormsPlugin) BaseProtocol() string      { return "http" }
+func (p *FormsTLSPlugin) BaseProtocol() string   { return "https" }
+func (p *ReportsPlugin) BaseProtocol() string    { return "http" }
+func (p *ReportsTLSPlugin) BaseProtocol() string { return "https" }

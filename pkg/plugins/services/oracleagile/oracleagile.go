@@ -280,3 +280,10 @@ func (p *AgilePLMTLSPlugin) PortPriority(port uint16) bool { return port == 443 
 func (p *AgilePLMTLSPlugin) Name() string                  { return OracleAgilePLM }
 func (p *AgilePLMTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *AgilePLMTLSPlugin) Priority() int                 { return -1 } // Runs before generic HTTPS to claim port 443
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *AgilePLMPlugin) BaseProtocol() string    { return "http" }
+func (p *AgilePLMTLSPlugin) BaseProtocol() string { return "https" }

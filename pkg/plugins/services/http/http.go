@@ -136,12 +136,14 @@ func (p *HTTPPlugin) Run(conn net.Conn, timeout time.Duration, target plugins.Ta
 	defer resp.Body.Close()
 
 	baseURL := fmt.Sprintf("http://%s", conn.RemoteAddr().String())
-	technologies, cpes, fingerprintMetadata, fingerprintedTechs, fpFindings, title, body, _ := p.FingerprintResponse(resp, &client, baseURL, target.Host, target.Misconfigs)
+	technologies, cpes, fingerprintMetadata, fingerprintedTechs, fpFindings, title, body, _ := p.FingerprintResponse(resp, &client, baseURL, target)
 
 	payload := plugins.ServiceHTTP{
-		Status:          resp.Status,
-		StatusCode:      resp.StatusCode,
-		ResponseHeaders: resp.Header,
+		Status:     resp.Status,
+		StatusCode: resp.StatusCode,
+	}
+	if !target.ProtocolOnly {
+		payload.ResponseHeaders = resp.Header
 	}
 	if title != "" {
 		if len(title) > maxTitleLength {
@@ -159,7 +161,7 @@ func (p *HTTPPlugin) Run(conn net.Conn, timeout time.Duration, target plugins.Ta
 		payload.FingerprintMetadata = fingerprintMetadata
 	}
 
-	service := plugins.CreateServiceFrom(target, payload, false, resp.Header.Get("Server"), plugins.TCP)
+	service := plugins.CreateServiceFrom(target, payload, false, serverVersion(resp, target), plugins.TCP)
 	if target.Misconfigs && len(fingerprintedTechs) > 0 {
 		service.AnonymousAccess = true
 		for _, ft := range fingerprintedTechs {
@@ -191,7 +193,7 @@ func (p *HTTPPlugin) Run(conn net.Conn, timeout time.Duration, target plugins.Ta
 			service.SecurityFindings = append(service.SecurityFindings, *finding)
 		}
 	}
-	if target.Deep {
+	if target.Deep && !target.ProtocolOnly {
 		deepClient := &http.Client{
 			Timeout: timeout,
 			Transport: &http.Transport{
@@ -249,12 +251,14 @@ func (p *HTTPSPlugin) Run(
 	defer resp.Body.Close()
 
 	baseURL := fmt.Sprintf("https://%s", conn.RemoteAddr().String())
-	technologies, cpes, fingerprintMetadata, fingerprintedTechs, fpFindings, title, body, _ := p.FingerprintResponse(resp, &client, baseURL, target.Host, target.Misconfigs)
+	technologies, cpes, fingerprintMetadata, fingerprintedTechs, fpFindings, title, body, _ := p.FingerprintResponse(resp, &client, baseURL, target)
 
 	payload := plugins.ServiceHTTPS{
-		Status:          resp.Status,
-		StatusCode:      resp.StatusCode,
-		ResponseHeaders: resp.Header,
+		Status:     resp.Status,
+		StatusCode: resp.StatusCode,
+	}
+	if !target.ProtocolOnly {
+		payload.ResponseHeaders = resp.Header
 	}
 	if title != "" {
 		if len(title) > maxTitleLength {
@@ -272,7 +276,7 @@ func (p *HTTPSPlugin) Run(
 		payload.FingerprintMetadata = fingerprintMetadata
 	}
 
-	service := plugins.CreateServiceFrom(target, payload, true, resp.Header.Get("Server"), plugins.TCP)
+	service := plugins.CreateServiceFrom(target, payload, true, serverVersion(resp, target), plugins.TCP)
 	if target.Misconfigs && len(fingerprintedTechs) > 0 {
 		service.AnonymousAccess = true
 		for _, ft := range fingerprintedTechs {
@@ -307,7 +311,7 @@ func (p *HTTPSPlugin) Run(
 			}
 		}
 	}
-	if target.Deep {
+	if target.Deep && !target.ProtocolOnly {
 		deepClient := &http.Client{
 			Timeout: timeout,
 			Transport: &http.Transport{
@@ -345,12 +349,22 @@ func (p *HTTPPlugin) Name() string {
 func (p *HTTPSPlugin) Name() string {
 	return HTTPS
 }
-func (p *HTTPPlugin) FingerprintResponse(resp *http.Response, client *http.Client, baseURL string, host string, misconfigs bool) ([]string, []string, map[string]map[string]any, []fingerprintedTech, []plugins.SecurityFinding, string, []byte, error) {
-	return fingerprint(resp, p.analyzer, client, baseURL, host, misconfigs)
+
+// serverVersion returns the Server response header, or "" for protocol-only
+// scans where the server product is an application-layer detail.
+func serverVersion(resp *http.Response, target plugins.Target) string {
+	if target.ProtocolOnly {
+		return ""
+	}
+	return resp.Header.Get("Server")
 }
 
-func (p *HTTPSPlugin) FingerprintResponse(resp *http.Response, client *http.Client, baseURL string, host string, misconfigs bool) ([]string, []string, map[string]map[string]any, []fingerprintedTech, []plugins.SecurityFinding, string, []byte, error) {
-	return fingerprint(resp, p.analyzer, client, baseURL, host, misconfigs)
+func (p *HTTPPlugin) FingerprintResponse(resp *http.Response, client *http.Client, baseURL string, target plugins.Target) ([]string, []string, map[string]map[string]any, []fingerprintedTech, []plugins.SecurityFinding, string, []byte, error) {
+	return fingerprint(resp, p.analyzer, client, baseURL, target)
+}
+
+func (p *HTTPSPlugin) FingerprintResponse(resp *http.Response, client *http.Client, baseURL string, target plugins.Target) ([]string, []string, map[string]map[string]any, []fingerprintedTech, []plugins.SecurityFinding, string, []byte, error) {
+	return fingerprint(resp, p.analyzer, client, baseURL, target)
 }
 
 // formatTechnologyWithVersion returns a technology string with version appended if present.
@@ -505,7 +519,15 @@ func processFingerprintResult(result *fingerprinters.FingerprintResult) (string,
 	return tech, result.CPEs, result.Metadata, result.Severity
 }
 
-func fingerprint(resp *http.Response, analyzer *wappalyzer.Wappalyze, client *http.Client, baseURL string, host string, misconfigs bool) ([]string, []string, map[string]map[string]any, []fingerprintedTech, []plugins.SecurityFinding, string, []byte, error) {
+func fingerprint(resp *http.Response, analyzer *wappalyzer.Wappalyze, client *http.Client, baseURL string, target plugins.Target) ([]string, []string, map[string]map[string]any, []fingerprintedTech, []plugins.SecurityFinding, string, []byte, error) {
+	// Protocol-only scans want the wire protocol and nothing else. Returning
+	// here skips wappalyzer, every registered fingerprinter, their active
+	// endpoint probes, and the response body read. The body is deliberately
+	// left unread; Run's deferred Close releases it.
+	if target.ProtocolOnly {
+		return nil, nil, nil, nil, nil, "", nil, nil
+	}
+
 	var technologies, cpes []string
 	var fingerprintedTechs []fingerprintedTech
 	var fpFindings []plugins.SecurityFinding
@@ -594,8 +616,8 @@ func fingerprint(resp *http.Response, analyzer *wappalyzer.Wappalyze, client *ht
 			}
 			probeReq.Header.Set("Accept", acceptHeader)
 			probeReq.Header.Set("User-Agent", USERAGENT)
-			if host != "" {
-				probeReq.Host = host
+			if target.Host != "" {
+				probeReq.Host = target.Host
 			}
 
 			probeResp, err := client.Do(probeReq)
@@ -638,10 +660,10 @@ func fingerprint(resp *http.Response, analyzer *wappalyzer.Wappalyze, client *ht
 	}
 
 	// MisconfigHTTPFingerprinter phase: call CheckMisconfigs on matched fingerprinters
-	if misconfigs && client != nil && baseURL != "" {
+	if target.Misconfigs && client != nil && baseURL != "" {
 		for _, fp := range matchedFingerprinters {
 			if mfp, ok := fp.(fingerprinters.MisconfigHTTPFingerprinter); ok {
-				fpFindings = append(fpFindings, mfp.CheckMisconfigs(client, baseURL, host)...)
+				fpFindings = append(fpFindings, mfp.CheckMisconfigs(client, baseURL, target.Host)...)
 			}
 		}
 	}

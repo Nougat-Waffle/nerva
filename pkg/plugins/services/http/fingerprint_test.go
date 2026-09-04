@@ -24,6 +24,8 @@ import (
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/praetorian-inc/nerva/pkg/plugins"
+
 	"github.com/praetorian-inc/nerva/pkg/plugins/fingerprinters"
 )
 
@@ -198,7 +200,7 @@ func TestFingerprint_TitleExtraction(t *testing.T) {
 				Header:     http.Header{"Content-Type": []string{tt.contentType}},
 				Body:       io.NopCloser(bytes.NewBufferString(tt.body)),
 			}
-			_, _, _, _, _, title, _, err := fingerprint(resp, wappalyzerClient, nil, "", "", false)
+			_, _, _, _, _, title, _, err := fingerprint(resp, wappalyzerClient, nil, "", plugins.Target{})
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedTitle, title)
 		})
@@ -298,7 +300,7 @@ func TestFingerprint_TitleEdgeCases(t *testing.T) {
 				Header:     http.Header{"Content-Type": []string{tt.contentType}},
 				Body:       io.NopCloser(bytes.NewBufferString(tt.body)),
 			}
-			_, _, _, _, _, title, _, err := fingerprint(resp, wappalyzerClient, nil, "", "", false)
+			_, _, _, _, _, title, _, err := fingerprint(resp, wappalyzerClient, nil, "", plugins.Target{})
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedTitle, title)
 		})

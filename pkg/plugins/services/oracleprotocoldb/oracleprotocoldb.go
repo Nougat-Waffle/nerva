@@ -1584,3 +1584,11 @@ func (p *CoherencePlugin) PortPriority(port uint16) bool { return port == cohere
 func (p *CoherencePlugin) Name() string                  { return plugins.ProtoOracleCoherence }
 func (p *CoherencePlugin) Type() plugins.Protocol        { return plugins.TCP }
 func (p *CoherencePlugin) Priority() int                 { return 900 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *CoherenceHTTPPlugin) BaseProtocol() string    { return "http" }
+func (p *CoherenceHTTPTLSPlugin) BaseProtocol() string { return "https" }
+func (p *NoSQLHTTPPlugin) BaseProtocol() string        { return "http" }

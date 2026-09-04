@@ -63,6 +63,19 @@ func checkConfig(config *cliConfig) error {
 		return errors.New("--resume requires --state-file")
 	}
 
+	// --protocol-only reports the wire protocol and nothing else, so it cannot
+	// be combined with the application-layer features. --deep is driven purely
+	// by HTTP fingerprinters, and the misconfiguration checks need the response
+	// body that protocol-only scans never read.
+	if config.protocolOnly {
+		if config.misconfigs {
+			return errors.New("--protocol-only cannot be combined with --misconfigs")
+		}
+		if config.deep {
+			return errors.New("--protocol-only cannot be combined with --deep")
+		}
+	}
+
 	if config.scanDepth != "" {
 		switch ScanDepth(config.scanDepth) {
 		case ScanDepthFast, ScanDepthThorough:
@@ -92,6 +105,7 @@ func createScanConfig(config cliConfig) scan.Config {
 		DNSOrder:       config.dnsOrder,
 		Misconfigs:     config.misconfigs,
 		Deep:           config.deep,
+		ProtocolOnly:   config.protocolOnly,
 	}
 
 	// --scan-depth, when set, takes precedence over --fast (validated in checkConfig).

@@ -420,3 +420,10 @@ func (p *LibreChatTLSPlugin) PortPriority(port uint16) bool { return port == 443
 func (p *LibreChatTLSPlugin) Name() string                  { return LIBRECHAT }
 func (p *LibreChatTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *LibreChatTLSPlugin) Priority() int                 { return 100 }
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *LibreChatPlugin) BaseProtocol() string    { return "http" }
+func (p *LibreChatTLSPlugin) BaseProtocol() string { return "https" }

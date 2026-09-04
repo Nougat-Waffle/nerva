@@ -41,20 +41,21 @@ type ScanState struct {
 
 // StateConfig stores scan configuration for resume
 type StateConfig struct {
-	TimeoutMs   int     `json:"timeout_ms"`
-	FastMode    bool    `json:"fast_mode"`
-	ScanDepth   string  `json:"scan_depth,omitempty"`
-	UDP         bool    `json:"udp"`
-	SCTP        bool    `json:"sctp"`
-	Verbose     bool    `json:"verbose"`
-	Workers     int     `json:"workers,omitempty"`
-	MaxHostConn int     `json:"max_host_conn,omitempty"`
-	RateLimit   float64 `json:"rate_limit,omitempty"`
-	Proxy       string  `json:"proxy,omitempty"`
-	ProxyAuth   string  `json:"proxy_auth,omitempty"`
-	DNSOrder    string  `json:"dns_order,omitempty"`
-	Misconfigs  bool    `json:"misconfigs,omitempty"`
-	Deep        bool    `json:"deep,omitempty"`
+	TimeoutMs    int     `json:"timeout_ms"`
+	FastMode     bool    `json:"fast_mode"`
+	ScanDepth    string  `json:"scan_depth,omitempty"`
+	UDP          bool    `json:"udp"`
+	SCTP         bool    `json:"sctp"`
+	Verbose      bool    `json:"verbose"`
+	Workers      int     `json:"workers,omitempty"`
+	MaxHostConn  int     `json:"max_host_conn,omitempty"`
+	RateLimit    float64 `json:"rate_limit,omitempty"`
+	Proxy        string  `json:"proxy,omitempty"`
+	ProxyAuth    string  `json:"proxy_auth,omitempty"`
+	DNSOrder     string  `json:"dns_order,omitempty"`
+	Misconfigs   bool    `json:"misconfigs,omitempty"`
+	Deep         bool    `json:"deep,omitempty"`
+	ProtocolOnly bool    `json:"protocol_only,omitempty"`
 }
 
 // StateTargets tracks target progress

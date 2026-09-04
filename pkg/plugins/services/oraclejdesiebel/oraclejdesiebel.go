@@ -619,3 +619,12 @@ func (p *SiebelTLSPlugin) PortPriority(port uint16) bool { return port == Defaul
 func (p *SiebelTLSPlugin) Name() string                  { return OracleSiebel }
 func (p *SiebelTLSPlugin) Type() plugins.Protocol        { return plugins.TCPTLS }
 func (p *SiebelTLSPlugin) Priority() int                 { return -1 } // Runs before generic HTTPS so it can claim Siebel on shared ports (e.g. 443)
+
+// BaseProtocol marks this plugin as application-layer: it identifies a product
+// running over a protocol nerva already detects generically, so protocol-only
+// scans skip it and let the generic plugin claim the port.
+// See plugins.AppLayerPlugin.
+func (p *JDEPlugin) BaseProtocol() string       { return "http" }
+func (p *JDETLSPlugin) BaseProtocol() string    { return "https" }
+func (p *SiebelPlugin) BaseProtocol() string    { return "http" }
+func (p *SiebelTLSPlugin) BaseProtocol() string { return "https" }
