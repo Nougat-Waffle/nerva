@@ -1,6 +1,6 @@
 # `--protocol-only`: protocol detection without service fingerprinting
 
-Status: approved design, not yet implemented
+Status: implemented on branch `protocol-only`
 Issue: [praetorian-inc/nerva#421](https://github.com/praetorian-inc/nerva/issues/421)
 Date: 2026-09-04
 
@@ -16,7 +16,7 @@ distinct complaints, which map to two different layers of nerva:
    `/favicon.ico`, `/hub/api/users`, …), each with the full timeout budget. This
    dominates per-target cost for HTTP services.
 
-2. **`protocol` is polluted with product names.** ~69 plugins identify a product
+2. **`protocol` is polluted with product names.** ~68 plugins identify a product
    rather than a protocol (`oracle_ebs`, `oracle_weblogic`, `docker`, `cups`, …).
    They register as ordinary TCP/TCPTLS plugins, most at `Priority() == -1`, so
    they run *before* the generic `http`/`https` plugins and claim the port.
@@ -214,7 +214,7 @@ UDP/SCTP paths in `scan_api.go`).
 only fingerprinters), and `checkDirectoryListing` needs the body protocol-only
 no longer reads. Erroring beats a silent no-op.
 
-## App-layer plugins: 69 structs across 32 packages
+## App-layer plugins: 68 structs across 31 packages
 
 Verified by enumerating the live registry via reflection (225 plugins total:
 133 TCP, 55 TCPTLS, 32 UDP, 8 SCTP).
@@ -251,7 +251,6 @@ noted.
 | `peoplesoft` | `PeopleSoftPlugin`, `PeopleSoftTLSPlugin` |
 | `pulsar` | `AdminPlugin`, `AdminTLSPlugin` |
 | `qdrant` | `QdrantPlugin` |
-| `redissentinel` | `RedisSentinelPlugin` — **`"redis"`** |
 | `sonarqube` | `SonarQubePlugin` |
 | `vmware` | `VMwarePlugin` |
 | `webcenter` | `WebCenterPlugin`, `WebCenterTLSPlugin` |
@@ -267,17 +266,26 @@ noted.
 | `oracleprotocoldb.NoSQLPlugin` | 5000 | Native wire protocol |
 | `oracleprotocoldb.TimesTenPlugin` | 6624, 6625 | Native wire protocol |
 | `pulsar.Plugin`, `pulsar.TLSPlugin` | 6650, 6651 | Pulsar binary protocol |
+| `redissentinel.RedisSentinelPlugin` | 26379 | Separate protocol, not a product over Redis (see below) |
 
 Consequence: protocol-only can still emit product-shaped names such as
 `oracle_timesten`. Those are wire protocols with no generic alternative;
 excluding them would return nothing rather than something better.
 
-### Judgment call: `redissentinel`
+### Considered and rejected: `redissentinel`
 
-The only marking outside the HTTP/IPP set. Redis Sentinel speaks RESP and the
-generic `redis` plugin answers a `PING` on port 26379, so under the stated rule
-it qualifies. Reviewers may disagree; it is a one-line revert. Flag it
-explicitly in the PR description.
+Redis Sentinel speaks RESP, and the generic `redis` plugin does claim port 26379
+once Sentinel is excluded (verified against a fake Sentinel: protocol-only
+reports `redis`). Under a literal reading of the rule it qualifies.
+
+It is nevertheless **not** marked. Unlike Oracle EBS over HTTP, Sentinel is the
+same `redis-server` binary in a different mode, on its own port, with its own
+command vocabulary — a separate protocol rather than a product riding a generic
+transport. Marking it would also make `--protocol-only --fast` return nothing on
+26379, since `REDISPlugin.PortPriority` covers only 6379.
+
+The cost of leaving it in is one extra plugin in the slow-lane candidate list,
+accepted deliberately.
 
 ## Testing
 

@@ -16,12 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   probes — is skipped along with the response body read. Mutually exclusive with
   `--misconfigs` and `--deep`. Exposed to library users as
   `scan.Config.ProtocolOnly`.
-- `plugins.AppLayerPlugin`, an optional marker interface implemented by the 69
+- `plugins.AppLayerPlugin`, an optional marker interface implemented by the 68
   plugins that identify a product running over a protocol nerva already detects
-  generically (Oracle EBS and WebLogic over HTTP, CUPS over IPP, Redis Sentinel
-  over Redis, and others). Protocol-only scans exclude these from plugin
-  selection. Plugins that use HTTP purely as a transport, such as IPP, are
-  deliberately not marked.
+  generically (Oracle EBS and WebLogic over HTTP, CUPS over IPP, and others).
+  Protocol-only scans exclude these from plugin selection. Plugins that use HTTP
+  purely as a transport, such as IPP, are deliberately not marked, as are
+  distinct protocols that merely share a wire format with a generic plugin, such
+  as Redis Sentinel.
 
 ### Changed
 

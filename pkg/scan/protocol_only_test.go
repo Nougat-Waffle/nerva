@@ -107,11 +107,11 @@ func TestAppLayerClassification(t *testing.T) {
 	appLayer := []string{
 		"oracle_ebs", "oracle_weblogic", "oracle_peoplesoft", "oracle_ords",
 		"docker", "cups", "influxdb", "glassfish", "sonarqube", "qdrant",
-		"pulsar-admin", "vmware-vsphere", "redis-sentinel",
+		"pulsar-admin", "vmware-vsphere",
 	}
 	// Wire protocols, including ones that use HTTP purely as a transport.
 	protocol := []string{
-		"http", "https", "ipp", "ssh", "ftp", "redis", "grpc",
+		"http", "https", "ipp", "ssh", "ftp", "redis", "redis-sentinel", "grpc",
 		"pulsar", "oracle_timesten", "oracle_coherence", "oracle_nosql",
 		"oracle_goldengate_manager",
 	}
