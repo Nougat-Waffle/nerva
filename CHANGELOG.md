@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   probes — is skipped along with the response body read. Mutually exclusive with
   `--misconfigs` and `--deep`. Exposed to library users as
   `scan.Config.ProtocolOnly`.
+- `--protocols` flag restricting the scan to an explicit protocol allowlist
+  (e.g. `http,https,ssh`); each target is probed only with the named plugins,
+  once each, regardless of port, and the full-plugin slow lane is skipped,
+  removing the long tail while keeping non-standard-port coverage. Exposed to
+  library users as `scan.Config.Protocols`.
 - `plugins.AppLayerPlugin`, an optional marker interface implemented by the 68
   plugins that identify a product running over a protocol nerva already detects
   generically (Oracle EBS and WebLogic over HTTP, CUPS over IPP, and others).
@@ -23,12 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   purely as a transport, such as IPP, are deliberately not marked, as are
   distinct protocols that merely share a wire format with a generic plugin, such
   as Redis Sentinel.
+- CLI-surface drift gate: `make cli-docs` regenerates `docs/CLI.md` and `docs/cli-surface.json` from the live cobra tree; CI fails when documentation drifts (ENG-8010).
 
 ### Changed
 
 - `HTTPPlugin.FingerprintResponse` and `HTTPSPlugin.FingerprintResponse` now take
   a `plugins.Target` in place of their `host string, misconfigs bool` parameters.
 - `response_headers` in the `http`/`https` service payloads is now `omitempty`.
+- README flag table removed; [docs/CLI.md](docs/CLI.md) is the single flag reference (ENG-8010).
+- cobra 1.5.0 → 1.10.2 and pflag 1.0.5 → 1.0.10, riding in with the capability-sdk pin (ENG-8010).
 
 ## [1.4.0] - 2026-05-08
 
