@@ -106,6 +106,7 @@ func createScanConfig(config cliConfig) scan.Config {
 		Misconfigs:     config.misconfigs,
 		Deep:           config.deep,
 		ProtocolOnly:   config.protocolOnly,
+		Protocols:      config.protocols,
 	}
 
 	// --scan-depth, when set, takes precedence over --fast (validated in checkConfig).

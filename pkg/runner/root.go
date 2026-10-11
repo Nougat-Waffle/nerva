@@ -330,6 +330,11 @@ func init() {
 		"report only the wire protocol (http, https, ssh, ipp, ...); skips application-layer "+
 			"plugins and HTTP fingerprinting. Cannot be combined with --misconfigs or --deep")
 
+	rootCmd.PersistentFlags().StringSliceVar(&config.protocols, "protocols", nil,
+		"restrict scanning to these protocol names (e.g. http,https,ssh); probes only these plugins "+
+			"on every port and skips the full-plugin slow lane, removing the long tail while keeping "+
+			"non-standard-port coverage")
+
 	rootCmd.PersistentFlags().StringVar(&config.proxy, "proxy", "", "proxy URL (e.g. socks5://127.0.0.1:1080)")
 	rootCmd.PersistentFlags().StringVar(&config.proxyAuth, "proxy-auth", "", "socks5 proxy authentication (username:password)")
 	rootCmd.PersistentFlags().StringVar(&config.dnsOrder, "dns-order", "lp", "DNS resolution order: p, l, lp, pl")

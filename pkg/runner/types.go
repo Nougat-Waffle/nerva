@@ -62,6 +62,10 @@ type cliConfig struct {
 	// Protocol-only detection (no application-layer fingerprinting)
 	protocolOnly bool
 
+	// Restrict scanning to these protocol names (plugin Name() values); tries
+	// only these plugins on every port and skips the full-plugin slow lane.
+	protocols []string
+
 	// Proxy
 	proxy     string
 	proxyAuth string
