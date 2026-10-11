@@ -108,5 +108,17 @@ type Config struct {
 	// application-layer features; the CLI rejects the combination.
 	ProtocolOnly bool
 
+	// Protocols restricts the scan to an explicit allowlist of protocol names
+	// (plugin Name() values, e.g. "http", "https", "ssh"). When non-empty, each
+	// target is probed only with the named plugins, once each, regardless of the
+	// target port, and the full-plugin slow lane is skipped entirely.
+	//
+	// This bounds per-target cost to the size of the allowlist, eliminating the
+	// thorough-mode long tail (dozens of plugins each blocking up to
+	// DefaultTimeout on ports that accept the connection but never answer). Unlike
+	// FastMode, which keys on PortPriority and therefore misses services on
+	// non-standard ports, the allowlist still identifies its protocols on any port.
+	Protocols []string
+
 	OnProgress ProgressCallback
 }

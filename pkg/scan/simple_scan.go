@@ -23,6 +23,7 @@ import (
 	"log"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -276,6 +277,13 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 		return nil, err
 	}
 
+	// An explicit protocol allowlist bypasses both the port-priority fast lane
+	// and the full-plugin slow lane: it probes only the named protocols, once
+	// each, on whatever port the target is listening on.
+	if len(c.Protocols) > 0 {
+		return c.scanProtocolAllowlist(target)
+	}
+
 	port := target.Address.Port()
 
 	// first check the default port mappings for TCP / TLS
@@ -422,6 +430,75 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 	}
 
 	return nil, nil
+}
+
+// scanProtocolAllowlist probes a target with only the plugins named in
+// Config.Protocols, once each, regardless of the target port, and never falls
+// through to the full-plugin slow lane. It returns on the first match.
+//
+// Plaintext TCP plugins are tried first; TLS plugins are tried only if any are
+// allowed and a TLS handshake succeeds. This bounds per-target cost to the size
+// of the allowlist, which is what removes the thorough-mode long tail, while
+// still catching the allowed protocols on non-standard ports.
+func (c *Config) scanProtocolAllowlist(target plugins.Target) ([]*plugins.Service, error) {
+	for _, plugin := range allowedPlugins(c.tcpCandidates(), c.Protocols) {
+		conn, err := c.DialTCP(target)
+		if err != nil {
+			return nil, fmt.Errorf("unable to connect, err = %w", err)
+		}
+		result, err := simplePluginRunner(conn, target, c, plugin)
+		if err != nil && c.Verbose {
+			log.Printf("error: %v scanning %v\n", err, target.Address.String())
+		}
+		if result != nil && err == nil {
+			return []*plugins.Service{result}, nil
+		}
+	}
+
+	tlsPlugins := allowedPlugins(c.tcpTLSCandidates(), c.Protocols)
+	if len(tlsPlugins) == 0 {
+		return nil, nil
+	}
+
+	tlsConn, tlsErr := c.DialTLS(target)
+	if tlsErr != nil {
+		// Not a TLS port; nothing more to try under the allowlist.
+		return nil, nil
+	}
+
+	for i, plugin := range tlsPlugins {
+		if i > 0 {
+			var err error
+			tlsConn, err = c.DialTLS(target)
+			if err != nil {
+				return nil, fmt.Errorf("error connecting via TLS, err = %w", err)
+			}
+		}
+		result, err := simplePluginRunner(tlsConn, target, c, plugin)
+		if err != nil && c.Verbose {
+			log.Printf("error: %v scanning %v\n", err, target.Address.String())
+		}
+		if result != nil && err == nil {
+			return []*plugins.Service{result}, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// allowedPlugins returns the candidates whose Name() is in names, preserving
+// candidate order. Names are matched case-insensitively.
+func allowedPlugins(candidates []plugins.Plugin, names []string) []plugins.Plugin {
+	allowed := make([]plugins.Plugin, 0, len(names))
+	for _, plugin := range candidates {
+		for _, name := range names {
+			if strings.EqualFold(plugin.Name(), name) {
+				allowed = append(allowed, plugin)
+				break
+			}
+		}
+	}
+	return allowed
 }
 
 // isRemoteTLSAlert reports whether crypto/tls received a valid peer alert.
