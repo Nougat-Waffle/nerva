@@ -436,45 +436,53 @@ func (c *Config) SimpleScanTarget(target plugins.Target) ([]*plugins.Service, er
 // Config.Protocols, once each, regardless of the target port, and never falls
 // through to the full-plugin slow lane. It returns on the first match.
 //
-// Plaintext TCP plugins are tried first; TLS plugins are tried only if any are
-// allowed and a TLS handshake succeeds. This bounds per-target cost to the size
-// of the allowlist, which is what removes the thorough-mode long tail, while
-// still catching the allowed protocols on non-standard ports.
+// TLS plugins go first, when any are allowed: a TLS server usually answers a
+// plaintext request on its port too, with an error such as nginx's "400 The
+// plain HTTP request was sent to HTTPS port", which the plaintext http plugin
+// would take for a plaintext http service. A completed handshake, or a TLS
+// alert from the peer as in the default scan path, proves the port uses TLS,
+// so plaintext plugins are tried only when the handshake fails otherwise.
+//
+// This bounds per-target cost to the size of the allowlist, which is what
+// removes the thorough-mode long tail, while still catching the allowed
+// protocols on non-standard ports.
 func (c *Config) scanProtocolAllowlist(target plugins.Target) ([]*plugins.Service, error) {
+	if tlsPlugins := allowedPlugins(c.tcpTLSCandidates(), c.Protocols); len(tlsPlugins) > 0 {
+		tlsConn, tlsErr := c.DialTLS(target)
+		if isRemoteTLSAlert(tlsErr) {
+			if c.Verbose {
+				log.Printf("%v %v-> peer rejected TLS handshake; skipping plaintext probes\n",
+					target.Address.String(), target.Host)
+			}
+			return nil, nil
+		}
+		if tlsErr == nil {
+			for i, plugin := range tlsPlugins {
+				if i > 0 {
+					var err error
+					tlsConn, err = c.DialTLS(target)
+					if err != nil {
+						return nil, fmt.Errorf("error connecting via TLS, err = %w", err)
+					}
+				}
+				result, err := simplePluginRunner(tlsConn, target, c, plugin)
+				if err != nil && c.Verbose {
+					log.Printf("error: %v scanning %v\n", err, target.Address.String())
+				}
+				if result != nil && err == nil {
+					return []*plugins.Service{result}, nil
+				}
+			}
+			return nil, nil
+		}
+	}
+
 	for _, plugin := range allowedPlugins(c.tcpCandidates(), c.Protocols) {
 		conn, err := c.DialTCP(target)
 		if err != nil {
 			return nil, fmt.Errorf("unable to connect, err = %w", err)
 		}
 		result, err := simplePluginRunner(conn, target, c, plugin)
-		if err != nil && c.Verbose {
-			log.Printf("error: %v scanning %v\n", err, target.Address.String())
-		}
-		if result != nil && err == nil {
-			return []*plugins.Service{result}, nil
-		}
-	}
-
-	tlsPlugins := allowedPlugins(c.tcpTLSCandidates(), c.Protocols)
-	if len(tlsPlugins) == 0 {
-		return nil, nil
-	}
-
-	tlsConn, tlsErr := c.DialTLS(target)
-	if tlsErr != nil {
-		// Not a TLS port; nothing more to try under the allowlist.
-		return nil, nil
-	}
-
-	for i, plugin := range tlsPlugins {
-		if i > 0 {
-			var err error
-			tlsConn, err = c.DialTLS(target)
-			if err != nil {
-				return nil, fmt.Errorf("error connecting via TLS, err = %w", err)
-			}
-		}
-		result, err := simplePluginRunner(tlsConn, target, c, plugin)
 		if err != nil && c.Verbose {
 			log.Printf("error: %v scanning %v\n", err, target.Address.String())
 		}
